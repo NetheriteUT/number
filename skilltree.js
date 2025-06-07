@@ -80,6 +80,7 @@ const getParentBranch = (className) => {
 const isBaseClass = (className) => { const node = getNodeInfo(className); return node ? node.level === 1 : false; };
 const isBranchClass = (className) => { const node = getNodeInfo(className); return node ? node.level === 2 : false; };
 const isSubBranchClass = (className) => { const node = getNodeInfo(className); return node ? node.level === 3 : false; };
+const BASE_CLASSES = ["Math", "Science", "ELA", "Social Studies"];
 
 
 const getSymbolForClass = (className) => {
@@ -112,17 +113,34 @@ function loadState() {
         unlockedClasses = JSON.parse(localStorage.getItem('unlockedClasses') || '[]');
         skillPoints = parseInt(localStorage.getItem('skillPoints') || '0', 10); // Load skill points
 
-         // Ensure base classes are unlocked if they were the initial selected class
-        // Check if selectedClass is a valid node and if it's a base class
-        const selectedNodeInfo = getNodeInfo(selectedClass);
-        if (selectedNodeInfo && selectedNodeInfo.level === 1 && !unlockedClasses.includes(selectedClass)) {
-            unlockedClasses.push(selectedClass);
-        }
+         // --- Ensure Base Classes Are Always Unlocked ---
+         // Add any base class that is NOT already in unlockedClasses.
+         BASE_CLASSES.forEach(baseClass => {
+             if (!unlockedClasses.includes(baseClass)) {
+                 unlockedClasses.push(baseClass);
+             }
+         });
+         // If no class is selected and base classes are now unlocked, default to selecting the first one or keep null
+         if (selectedClass === null && unlockedClasses.length > 0) {
+              // Keep selectedClass as null if nothing was previously selected, user must choose
+         }
+          // If a class was previously selected but is no longer in unlocked (shouldn't happen with base classes always unlocked now), reset selection
+          if (selectedClass !== null && !unlockedClasses.includes(selectedClass)) {
+               selectedClass = null;
+          }
+         // --- End Ensure Base Classes Always Unlocked ---
+
 
     } catch (e) {
         console.error("Error loading skill tree state from localStorage:", e);
         selectedClass = null;
         unlockedClasses = [];
+         // Ensure base classes are unlocked even after a load error
+         BASE_CLASSES.forEach(baseClass => {
+             if (!unlockedClasses.includes(baseClass)) {
+                 unlockedClasses.push(baseClass);
+             }
+         });
         skillPoints = 0;
     }
 }
@@ -187,9 +205,9 @@ function renderTree() {
         const isUnlocked = unlockedClasses.includes(className);
 
         if (isUnlocked) {
-            node.classList.add('unlocked');
+            node.classList.add('unlocked'); // Base classes are now always unlocked from load
         } else {
-             // Base classes are initially random. Mark as locked if not unlocked.
+             // This case should technically not happen anymore for base classes
             node.classList.add('locked');
         }
 
@@ -215,7 +233,8 @@ function renderTree() {
         groupDiv.classList.add('node-group');
         groupDiv.dataset.baseClass = baseClass;
 
-        const baseClassUnlocked = unlockedClasses.includes(baseClass); // Prerequisite for Level 2
+        // Base class is always unlocked now, so its branches are potentially unlockable
+        const baseClassUnlocked = true; // Assuming base class is always unlocked
 
         // Filter nodes to get Level 2 nodes whose parent is this baseClass
         const branchNodes = Object.keys(SKILL_TREE_NODES).filter(key => SKILL_TREE_NODES[key].level === 2 && SKILL_TREE_NODES[key].parent === baseClass);
@@ -247,7 +266,7 @@ function renderTree() {
 
              if (isBranchUnlocked) {
                 branchNode.classList.add('unlocked');
-             } else if (baseClassUnlocked) {
+             } else if (baseClassUnlocked) { // Prerequisite: parent base class must be unlocked (which is always true now)
                  branchNode.classList.add('unlockable'); // Visually indicate it can be unlocked
                  // Add cost display
                  const costSpan = document.createElement('span');
@@ -255,6 +274,7 @@ function renderTree() {
                  costSpan.textContent = branchNodeInfo.cost;
                  branchNode.appendChild(costSpan);
              } else {
+                 // This case should technically not happen anymore for Level 2 nodes
                  branchNode.classList.add('locked'); // Visually indicate locked
              }
 
@@ -268,9 +288,8 @@ function renderTree() {
              branchContainer.appendChild(branchNode); // Add branch node to its container
 
              // --- Add vertical line below branch node if unlocked ---
-             if (!branchNode.classList.contains('locked')) {
-                 // CSS pseudo-element handles this line
-             }
+             // Handled by CSS pseudo-elements based on node class
+             // if (!branchNode.classList.contains('locked')) { ... }
 
              // --- Level 3 Nodes (Sub-Branches) ---
              if (subBranchClasses && subBranchClasses.length > 0) {
@@ -278,9 +297,8 @@ function renderTree() {
                  subTreeContainer.classList.add('subtree-container');
 
                   // Add horizontal line above subtree nodes if parent branch is unlocked
-                 if (!branchNode.classList.contains('locked')) {
-                     // CSS pseudo-element handles this line
-                 }
+                 // Handled by CSS pseudo-elements based on branch node class
+                 // if (!branchNode.classList.contains('locked')) { ... }
 
                  subBranchClasses.forEach(subBranchName => {
                      const subBranchNodeInfo = getNodeInfo(subBranchName);
@@ -299,6 +317,7 @@ function renderTree() {
                      subBranchNode.dataset.cost = subBranchNodeInfo.cost; // Store cost
 
                      const isSubBranchUnlocked = unlockedClasses.includes(subBranchName);
+                     const isBranchUnlocked = unlockedClasses.includes(branchName); // Prerequisite: parent branch must be unlocked
 
                      if (isSubBranchUnlocked) {
                          subBranchNode.classList.add('unlocked');
@@ -372,12 +391,17 @@ function handleNodeClick(event) {
         let logMessage = `Cannot unlock ${clickedClass}.`;
 
         if (level === 1) {
-            // Base classes are initially random. Cannot be unlocked with points here.
-            logMessage += " Base classes are not directly unlockable with skill points in this version.";
-             console.log(logMessage);
+            // Base classes are always unlocked from load now, so this branch should not be reachable for L1 nodes.
+            // Add a failsafe message.
+            logMessage = `Base class "${clickedClass}" is already unlocked from the beginning. Click to select it.`;
+            console.log(logMessage);
+             // Treat this as trying to select an already unlocked base class
+             selectedClass = clickedClass;
+             saveState(); // Save the selection
+             renderTree(); // Re-render to show selection
              return;
         } else {
-            // Level 2 or Level 3 node - check parent
+            // Level 2 or Level 3 node - check parent prerequisite
             const parentClass = nodeInfo.parent;
             if (unlockedClasses.includes(parentClass)) {
                  prerequisiteMet = true;
