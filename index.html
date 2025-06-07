@@ -6,19 +6,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script type="importmap">
         {
-            "imports": {}
+            "imports": {
+                "./flyingNumbers.js": "./flyingNumbers.js"
+            }
         }
     </script>
 </head>
 <body>
     <div id="counterDisplay">
-        <div id="mainCounter">Counter: 0</div>
-        <div id="alchemyCounter" class="alchemy-counter-hidden">Alchemy: 0/10</div> 
+        <div id="mainCounter">Counter: 0</div> 
+        <div id="alchemyCounter" class="alchemy-counter-hidden">Alchemy: 0/10</div>
+        <div id="physicsBarContainer" class="physics-bar-hidden">Physics: 0/10</div>
+        <div id="classDisplay" class="class-display-hidden"></div>
+        <div id="skillCounter" class="skill-counter-hidden">Skill Points: 0</div>
     </div>
-    <div id="buttonContainer"> 
-        <button id="clickButton">Click Me!</button>
-        <button id="classButton" class="class-button-hidden">Class</button>
+
+    <div id="centerContainer">
+        <div id="buttonContainer">
+            <button id="clickButton">Click Me!</button>
+        </div>
+        
+        <button id="skillTreeButton" class="skill-tree-button skill-tree-hidden">Skill Tree</button>
     </div>
+
     <div id="counterContainer"></div>
 
     <script src="script.js" type="module"></script>
