@@ -13,19 +13,20 @@
     </script>
 </head>
 <body>
-    <div id="counterDisplay">
-        <div id="mainCounter">Counter: 0</div> 
-        <div id="alchemyCounter" class="alchemy-counter-hidden">Alchemy: 0/10</div>
-        <div id="physicsBarContainer" class="physics-bar-hidden">Physics: 0/10</div>
-        <div id="classDisplay" class="class-display-hidden"></div>
-        <div id="skillCounter" class="skill-counter-hidden">Skill Points: 0</div>
+    <div id="counterDisplay"> <!-- Container for both counters -->
+        <div id="mainCounter">Counter: 0</div> <!-- Main counter display -->
+        <div id="alchemyCounter" class="alchemy-counter-hidden">Alchemy: 0/10</div> <!-- New Alchemy counter display -->
+        <div id="physicsBarContainer" class="physics-bar-hidden">Physics: 0/10</div> <!-- New Physics bar display -->
+        <div id="classDisplay" class="class-display-hidden"></div> <!-- New Class display -->
+        <div id="skillCounter" class="skill-counter-hidden">Skill Points: 0</div> <!-- New Skill Point display -->
     </div>
 
-    <div id="centerContainer">
-        <div id="buttonContainer">
+    <div id="centerContainer"> <!-- Container to hold elements centered vertically -->
+        <div id="buttonContainer"> <!-- Container for the main button (Click Me) -->
             <button id="clickButton">Click Me!</button>
         </div>
-        
+        <!-- Skill Tree Button - hidden until threshold is met -->
+        <!-- This button will appear next to the main button -->
         <button id="skillTreeButton" class="skill-tree-button skill-tree-hidden">Skill Tree</button>
     </div>
 
