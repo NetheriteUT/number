@@ -1,0 +1,334 @@
+body {
+    margin: 0;
+    /* overflow-x: hidden; /* Removed to allow horizontal scrolling/dragging */
+    background-color: #0a0a23; /* Dark futuristic blue */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Futuristic font */
+    padding: 20px;
+    box-sizing: border-box;
+    color: #e0e0e0; /* Light gray text */
+     /* Prevent text selection during drag */
+    user-select: none;
+    /* cursor: grab; /* Indicate it's draggable - Applied to wrapper instead */
+}
+
+/* Removed body.dragging cursor */
+
+h1 {
+    color: #00bfff; /* Bright blue */
+    margin-bottom: 10px;
+    text-shadow: 0 0 8px rgba(0, 191, 255, 0.6); /* Glow effect */
+    user-select: none; /* Prevent text selection during drag */
+    z-index: 10; /* Ensure it's above the tree */
+    position: relative; /* Needed for z-index */
+}
+
+#skillPointsDisplay {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #8a2be2; /* Purple */
+    font-weight: bold;
+    user-select: none; /* Prevent text selection during drag */
+    z-index: 10; /* Ensure it's above the tree */
+    position: relative; /* Needed for z-index to work */
+}
+
+#skillTreeWrapper {
+    /* This wrapper will contain the potentially large skill tree and be scrollable */
+    width: 100%;
+    /* overflow: auto; /* Allow scrolling within the wrapper */
+    overflow: hidden; /* Hide scrollbars */
+    /* Ensure the wrapper takes up available space but doesn't push button off screen */
+    flex-grow: 1;
+    display: flex;
+    justify-content: center; /* Center the container horizontally */
+    align-items: flex-start; /* Align to the top */
+     padding: 40px; /* Add padding around the tree */
+    box-sizing: border-box;
+    position: relative; /* Needed for lines or positioning */
+     /* Add grab cursor here */
+     cursor: grab;
+}
+
+#skillTreeWrapper.dragging {
+    cursor: grabbing; /* Indicate it's being dragged */
+}
+
+
+#skillTreeContainer {
+    display: flex;
+    flex-direction: column; /* Stack levels vertically */
+    align-items: center;
+    gap: 60px; /* Increased gap between levels */
+    /* Removed border, background-color, padding to make it less of a rigid box */
+    position: absolute; /* Position absolutely within the wrapper for drag */
+    top: 0;
+    left: 0;
+    transform: translate(0, 0); /* Start with no translation */
+    min-width: max-content; /* Allow container to be wider than viewport if needed */
+    /* Removed border */
+    /* Removed border-radius */
+    /* Removed background */
+    /* transition: transform 0.1s ease-out; /* Smooth dragging slightly */
+}
+
+/* Basic structure for levels */
+.tree-level {
+    display: flex;
+    justify-content: center;
+    width: 100%; /* Fill the container width */
+}
+
+.level-1 {
+     gap: 100px; /* Increased gap between base nodes */
+}
+
+.level-2-3-container {
+    display: flex;
+    flex-wrap: nowrap; /* Prevent wrapping - rely on drag instead */
+    justify-content: center;
+    gap: 60px; /* Increased gap between base class groups */
+    width: max-content; /* Ensure it takes up space based on content */
+}
+
+.node-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px; /* Increased gap between nodes within a group (branch, subtree) */
+    position: relative;
+    /* Removed padding, border, background from group */
+    flex: 0 0 auto; /* Don't grow or shrink, size based on content */
+    min-width: 150px; /* Adjusted Minimum width for a group */
+    max-width: 250px; /* Adjusted Maximum width for a group */
+}
+
+.branch-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px; /* Increased Gap between branch node and its subtree */
+    margin-bottom: 0; /* Removed margin */
+    position: relative;
+}
+
+/* Connecting Lines below nodes */
+
+/* Connects from Level 1 node to its node-group */
+.level-1 .node::after {
+     content: '';
+    position: absolute;
+    bottom: -30px; /* Position below the node */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; /* Thicker line */
+    height: 30px; /* Height of the line */
+    background-color: rgba(0, 191, 255, 0.8); /* Blue line */
+    box-shadow: 0 0 6px rgba(0, 191, 255, 0.5); /* Subtle line glow */
+    z-index: 0; /* Behind nodes */
+}
+
+/* Connects from branch node (Level 2) to its subtree-container */
+.branch-container > .node::after {
+    content: '';
+    position: absolute;
+    bottom: -30px; /* Position below the node */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; /* Thicker line */
+    height: 30px; /* Height of the line */
+    background-color: rgba(0, 191, 255, 0.8); /* Blue line */
+    box-shadow: 0 0 6px rgba(0, 191, 255, 0.5); /* Subtle line glow */
+    z-index: 0; /* Behind nodes */
+}
+
+
+/* Horizontal line above subtree nodes (Level 3) */
+.subtree-container {
+    display: flex;
+    justify-content: center; /* Center the sub-branches */
+    gap: 30px; /* Increased gap between sub-branch nodes */
+    padding-top: 30px; /* Increased space above subtree nodes */
+    position: relative;
+}
+
+.subtree-container::before {
+     content: '';
+    position: absolute;
+    top: 0;
+    left: 0; /* Start at the left edge of the subtree container */
+    right: 0; /* Extend to the right edge */
+    margin: 0 auto; /* Center the line if container is wider than needed */
+    width: calc(100% + 20px); /* Extend slightly past the nodes */
+    max-width: calc(100% + 20px); /* Ensure it doesn't grow too wide */
+    height: 4px; /* Thicker line */
+    background-color: rgba(0, 191, 255, 0.8); /* Blue line */
+    box-shadow: 0 0 6px rgba(0, 191, 255, 0.5); /* Subtle line glow */
+     z-index: 0; /* Behind nodes */
+}
+
+/* Vertical lines connecting horizontal line to Level 3 nodes */
+.subtree-container .node::before {
+    content: '';
+    position: absolute;
+    top: -30px; /* Position above the node */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; /* Thicker line */
+    height: 30px; /* Height of the line */
+    background-color: rgba(0, 191, 255, 0.8); /* Blue line */
+    box-shadow: 0 0 6px rgba(0, 191, 255, 0.5); /* Subtle line glow */
+    z-index: 0; /* Behind nodes */
+}
+
+
+/* Node styles */
+.node {
+    /* Adjusted size for octagon */
+    width: 70px; /* Smaller width */
+    height: 70px; /* Smaller height */
+    padding: 5px; /* Smaller padding */
+    font-size: 10px; /* Smaller font for cost/name */
+    cursor: pointer;
+    border: 2px solid #555; /* Default gray border */
+    border-radius: 0; /* No border radius for octagon */
+    background-color: #333; /* Dark gray default background */
+    color: transparent; /* Make text color transparent - will use title attribute for name */
+    /* transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease; */
+    text-align: center;
+    position: relative; /* Needed for cost indicator and symbol */
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); /* Subtle glow */
+    z-index: 1; /* Ensure nodes are above connection lines */
+    white-space: normal; /* Allow text wrapping if needed (though symbols are used) */
+    user-select: none; /* Prevent text selection during drag */
+    display: flex; /* Use flexbox to center symbol */
+    flex-direction: column;
+    justify-content: center; /* Center symbol vertically */
+    align-items: center; /* Center symbol horizontally */
+    box-sizing: border-box; /* Ensure padding is included in size */
+
+    /* Octagon shape */
+    clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+
+.node .node-symbol {
+    font-size: 24px; /* Smaller symbol size */
+    color: #e0e0e0; /* Default symbol color */
+    line-height: 1; /* Prevent extra space around symbol */
+    pointer-events: none; /* Allow clicks to pass through to the node */
+}
+
+
+/* Hover effect */
+.node:hover:not(.locked):not(.unlocked):not(.selected) {
+     background-color: #444;
+     border-color: #777;
+     transform: scale(1.1); /* Slight scale on hover */
+     box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+}
+.node.unlockable:hover {
+     background-color: #5a3a7b; /* Lighter purple on hover */
+     border-color: #a052ee;
+     transform: scale(1.15); /* More pronounced lift on hover */
+     box-shadow: 0 0 12px rgba(160, 82, 232, 0.8); /* Stronger purple glow on hover */
+}
+
+
+/* State styles */
+.node.unlocked {
+    background: linear-gradient(45deg, #004080, #0060a0); /* Gradient background */
+    border-color: #00bfff; /* Bright blue border */
+    box-shadow: 0 0 10px rgba(0, 191, 255, 0.7); /* Stronger blue glow */
+}
+.node.unlocked .node-symbol {
+     color: #a0e0ff; /* Lighter blue symbol color */
+}
+
+.node.selected {
+    background: linear-gradient(45deg, #006400, #008000); /* Green gradient */
+    border-color: #32cd32; /* Lime green border */
+    box-shadow: 0 0 12px rgba(50, 205, 50, 0.8); /* Stronger green glow */
+}
+.node.selected .node-symbol {
+     color: #90ee90; /* Light green symbol color */
+}
+
+.node.locked {
+    background-color: #202020; /* Very dark gray */
+    border-color: #404040;
+    cursor: not-allowed;
+    opacity: 0.6; /* Reduced opacity */
+}
+.node.locked .node-symbol {
+     color: #606060; /* Dim gray symbol color */
+}
+
+.node.unlockable {
+     /* Add a distinct style for nodes that *can* be unlocked but aren't yet */
+     border-color: #8a2be2; /* Purple border for unlockable */
+     background-color: #3a1a5b; /* Dark purple background */
+     box-shadow: 0 0 8px rgba(138, 43, 226, 0.6); /* Purple glow */
+     cursor: pointer;
+}
+.node.unlockable .node-symbol {
+     color: #d8bfd8; /* Thistle color symbol */
+}
+
+
+/* Cost indicator for unlockable nodes */
+.node .cost {
+    position: absolute;
+    top: -8px; /* Adjusted position for smaller node */
+    right: -8px; /* Adjusted position for smaller node */
+    background: linear-gradient(45deg, #8a2be2, #a052ee); /* Purple gradient */
+    color: white;
+    font-size: 10px; /* Smaller font */
+    font-weight: bold;
+    padding: 2px 5px; /* Adjusted padding */
+    border-radius: 50%; /* Circular */
+    min-width: 8px; /* Ensure it's a circle */
+    text-align: center;
+    border: 2px solid #6a1ac1; /* Darker purple border */
+    box-shadow: 0 0 6px rgba(138, 43, 226, 0.8); /* Cost glow */
+    z-index: 2; /* Ensure it's above the node and lines */
+}
+
+/* Hide cost indicator if node is not unlockable or is already unlocked */
+.node:not(.unlockable) .cost,
+.node.unlocked .cost,
+.node.selected .cost,
+.node.locked .cost {
+    display: none;
+}
+
+#backButton {
+    margin-top: 30px;
+    padding: 12px 25px;
+    font-size: 18px;
+    cursor: pointer;
+    background-color: #404040; /* Dark gray */
+    color: #e0e0e0; /* Light text */
+    border: 1px solid #606060;
+    border-radius: 5px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    user-select: none; /* Prevent text selection during drag */
+    z-index: 10; /* Ensure button is clickable above tree */
+    position: relative; /* Needed for z-index to work */
+}
+
+#backButton:hover {
+    background-color: #505050; /* Slightly lighter */
+    border-color: #808080;
+}
+
+/* Hide CSS lines if the node is locked */
+.level-1 .node.locked::after,
+.branch-container > .node.locked::after,
+.branch-container > .node.locked + .subtree-container::before,
+.branch-container > .node.locked + .subtree-container .node::before,
+.subtree-container .node.locked::before {
+    display: none;
+}
