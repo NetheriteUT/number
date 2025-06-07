@@ -11,7 +11,7 @@ body {
     gap: 20px;
 }
 
-
+/* Container for both counters */
 #counterDisplay {
     position: absolute;
     top: 10px;
@@ -19,33 +19,72 @@ body {
     font-size: 24px;
     color: #333;
     z-index: 10;
-    font-weight: normal; 
-    display: flex; 
+    font-weight: normal; /* Ensure text is not bold */
+    display: flex; /* Use flexbox to stack counters vertically */
     flex-direction: column;
 }
 
 #mainCounter {
-    
+    /* Inherits styles from #counterDisplay */
 }
 
 #alchemyCounter {
-    font-size: 18px; 
-    color: #666; 
-    margin-top: 5px; 
+    font-size: 18px; /* Slightly smaller than main counter */
+    color: #666; /* Different color */
+    margin-top: 5px; /* Add some space below the main counter */
 }
 
 .alchemy-counter-hidden {
-    display: none; 
+    display: none; /* Hide the alchemy counter */
 }
 
+#classDisplay {
+     font-size: 18px; /* Slightly smaller than main counter */
+     color: #007bff; /* A distinct color for class */
+     margin-top: 5px; /* Add some space */
+}
 
+.class-display-hidden {
+    display: none; /* Hide the class display */
+}
+
+#skillCounter {
+    font-size: 18px; /* Slightly smaller than main counter */
+    color: #8a2be2; /* Purple for Skill Points */
+    margin-top: 5px; /* Add some space */
+}
+
+.skill-counter-hidden {
+    display: none; /* Hide the skill counter */
+}
+
+#physicsBarContainer {
+    font-size: 18px; /* Slightly smaller */
+    color: #ff4500; /* OrangeRed for Physics */
+    margin-top: 5px; /* Space below */
+}
+
+.physics-bar-hidden {
+    display: none; /* Hide the physics bar */
+}
+
+/* Container to center the main button and skill tree button block */
+#centerContainer {
+    display: flex;
+    flex-direction: row; /* Arrange children side-by-side */
+    align-items: center;
+    gap: 20px; /* Space between the main button container and the skill tree button */
+    z-index: 1;
+    position: relative;
+}
+
+/* Container for the main button (Click Me) - now just holds one button */
 #buttonContainer {
     display: flex;
-    justify-content: center; 
+    justify-content: center;
     align-items: center;
-    gap: 20px; 
-    z-index: 1; 
-    position: relative; 
+    z-index: 1;
+    position: relative;
 }
 
 button {
@@ -54,24 +93,27 @@ button {
     cursor: pointer;
     z-index: 1;
     position: relative;
-    transition: transform 0.1s ease-in-out, background-image 0.5s ease-in-out, color 0.5s ease-in-out, border 0.5s ease-in-out; 
-    background-color: lightgray; 
-    color: black; 
-    border: 1px solid #ccc; 
+    transition: transform 0.1s ease-in-out, background-image 0.5s ease-in-out, color 0.5s ease-in-out, border 0.5s ease-in-out;
+    background-color: lightgray;
+    color: black;
+    border: 1px solid #ccc;
+    background-size: auto;
+    background-position: initial;
+    color: black;
+    border: 1px solid #ccc;
 }
 
-#classButton {
-    
-    transition: width 0.5s ease-in-out, opacity 0.5s ease-in-out, padding 0.5s ease-in-out; 
+/* Style for the new Skill Tree button */
+.skill-tree-button {
+    /* background-color: #4CAF50; Green */
+    background-color: lightgray; /* Changed to gray */
+    color: black; /* Changed to black */
+    border: 1px solid #ccc; /* Changed border */
 }
 
-.class-button-hidden {
-    width: 0;
-    opacity: 0;
-    padding-left: 0;
-    padding-right: 0;
-    pointer-events: none; 
-    overflow: hidden; 
+/* Class to hide the Skill Tree button */
+.skill-tree-hidden {
+    display: none; /* Hide the skill tree button */
 }
 
 @keyframes shake {
@@ -103,6 +145,15 @@ button.shake {
     opacity: 1;
     pointer-events: none;
     will-change: transform, left, top, font-size, color;
+}
+
+.rainbow-text {
+    /* Using a simple gradient for rainbow effect */
+    background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent; /* Make text color transparent */
+    font-weight: bold;
 }
 
 @keyframes shrink {
