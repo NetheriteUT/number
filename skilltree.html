@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Skill Tree</title>
+    <link rel="stylesheet" href="skilltree.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="importmap">
+        {
+            "imports": {}
+        }
+    </script>
+</head>
+<body>
+    <h1>Skill Tree</h1>
+
+    <div id="skillPointsDisplay">Skill Points: 0</div> <!-- Display Skill Points here -->
+
+    <!-- Wrap the skill tree container to allow flexible sizing and dragging -->
+    <div id="skillTreeWrapper">
+        <div id="skillTreeContainer">
+            <!-- Skill tree nodes will be rendered here by skilltree.js -->
+        </div>
+    </div>
+
+    <button id="backButton">Back to Game</button>
+
+    <script src="skilltree.js" type="module"></script>
+</body>
+</html>
