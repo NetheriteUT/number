@@ -65,9 +65,9 @@ const MULTIPLIER_LEVELS = [
 ];
 
 // Feature Unlock Thresholds
-const CLASS_UNLOCK_THRESHOLD = 100; // Threshold to get a random class
+const CLASS_UNLOCK_THRESHOLD = 100; // DEPRECATED - Base classes now unlock at SKILL_TREE_UNLOCK_THRESHOLD
 const ALCHEMY_COUNTER_UNLOCK_THRESHOLD = 30; // Threshold to unlock the alchemy counter
-const SKILL_TREE_UNLOCK_THRESHOLD = 1000; // Threshold to unlock the skill tree button
+const SKILL_TREE_UNLOCK_THRESHOLD = 1000; // Threshold to unlock the skill tree button (and now base classes)
 const SKILL_POINT_EARN_THRESHOLD = 100; // Earn 1 skill point every X clickCount
 const PASSIVE_INCOME_INTERVAL_MS = 1000; // Tick every 1 second for passive income
 
@@ -128,7 +128,7 @@ const SKILL_TREE_NODES = {
     "Creative Writing": { level: 3, parent: "Writing", symbol: "💡", cost: 5 }, // Light bulb
     "Etymology": { level: 3, parent: "Vocab", symbol: "🗣️", cost: 5 }, // Speaking head
     "Semantics": { level: 3, parent: "Vocab", symbol: "💬", cost: 5 }, // Speech balloon
-    "Syntax": { level: 3, parent: "Vocab", symbol: "📜", cost: 5 }, // Scroll (re-used)
+    "Syntax": { level: 3, parent: "Vocab", symbol: "📜", cost: 5 }, // Scroll (re-used) // <-- Added missing comma
 
     "World History": { level: 3, parent: "History", symbol: "🗺️", cost: 5 }, // World map (re-used)
     "US History": { level: 3, parent: "History", symbol: "🦅", cost: 5 }, // Eagle
@@ -160,15 +160,21 @@ const getLevel = (className) => {
     const node = getNodeInfo(className);
     return node ? node.level : 0;
 };
+const isBaseClass = (className) => { const node = getNodeInfo(className); return node ? node.level === 1 : false; }; // Added missing function
+
+// Keep the path-specific checks, potentially adjusting logic slightly for clarity or redundancy
 const isPhysicsPathSelected = (selectedClass) => {
     const selectedNodeInfo = getNodeInfo(selectedClass);
      if (!selectedNodeInfo) return false;
-     if (selectedNodeInfo.level === 1 && selectedClass === 'Science') return true; // Base Science might implicitly include all branches
+     // If base Science is selected, all Science branches are implicitly available/part of the path
+     if (selectedNodeInfo.level === 1 && selectedClass === 'Science') return true;
     const baseClass = getBaseClass(selectedClass);
-    if (baseClass !== 'Science') return false;
-    const parentBranch = getParentBranch(selectedClass);
+    if (baseClass !== 'Science') return false; // Must be Science path
+    // Check if the selected node *is* Physics (L2) or a child of Physics (L3)
+     const parentBranch = getParentBranch(selectedClass);
      return selectedClass === 'Physics' || parentBranch === 'Physics';
 };
+
 const isBiologyPathSelected = (selectedClass) => {
      const selectedNodeInfo = getNodeInfo(selectedClass);
       if (!selectedNodeInfo) return false;
@@ -267,11 +273,23 @@ function loadState() {
          lastChemHasteTriggerTime = parseInt(localStorage.getItem('lastChemHasteTriggerTime') || '0', 10); // Load chem haste trigger time
         lastPassiveIncomeTime = parseInt(localStorage.getItem('lastPassiveIncomeTime') || '0', 10); // Load passive income timer
 
-        // Ensure the randomly assigned base class is in unlockedClasses if it exists and is a base class
-         const selectedNodeInfo = getNodeInfo(selectedClass);
-         if (selectedNodeInfo && selectedNodeInfo.level === 1 && !unlockedClasses.includes(selectedClass)) {
-              unlockedClasses.push(selectedClass);
-         }
+        // Check if the SKILL_TREE_UNLOCK_THRESHOLD has been met or exceeded on load
+        // If so, ensure all base classes are in the unlockedClasses array
+        if (clickCount >= SKILL_TREE_UNLOCK_THRESHOLD) {
+            checkUnlockBaseClasses(); // Ensure base classes are unlocked if threshold is met
+        } else {
+             // If threshold not met, ensure unlockedClasses only contains a base class IF it was previously selected
+             // This handles old saves where a random class was assigned below 1000
+             const selectedNodeInfo = getNodeInfo(selectedClass);
+             if (selectedNodeInfo && selectedNodeInfo.level === 1 && unlockedClasses.includes(selectedClass)) {
+                  // Keep only the selected base class if below threshold
+                  unlockedClasses = [selectedClass];
+             } else {
+                  // Otherwise, clear unlocked classes if below threshold and no base class was selected/unlocked
+                  unlockedClasses = [];
+                  selectedClass = null; // Ensure selectedClass is null if no base class is unlocked below 1000
+             }
+        }
 
 
         // Ensure timers are valid if they were in the past
@@ -443,6 +461,26 @@ function randomLetter() {
     return letters.charAt(Math.floor(Math.random() * letters.length));
 }
 
+// Function to unlock base classes (Math, Science, ELA, Social Studies)
+function checkUnlockBaseClasses() {
+     // Check if the unlock threshold is met
+     if (clickCount >= SKILL_TREE_UNLOCK_THRESHOLD) {
+         let unlockedNewClass = false;
+         BASE_CLASSES.forEach(baseClass => {
+             if (!unlockedClasses.includes(baseClass)) {
+                 unlockedClasses.push(baseClass);
+                 console.log(`Base Class Unlocked: ${baseClass}`);
+                 unlockedNewClass = true;
+             }
+         });
+         if (unlockedNewClass) {
+             saveState(); // Save if new classes were unlocked
+             updateFeatureVisibility(); // Ensure the skill tree button and skill counter appear
+         }
+     }
+}
+
+
 // Function to update the visibility state of alchemy counter, class display text, skill counter, and physics bar
 function updateFeatureVisibility() {
     // Alchemy Counter Visibility
@@ -454,6 +492,7 @@ function updateFeatureVisibility() {
     }
 
     // Class Display Text Visibility and Content
+    // Only show if a class is *selected*, not just unlocked
     if (selectedClass !== null) {
          classDisplayElement.textContent = `Class: ${selectedClass}`;
          classDisplayElement.classList.remove('class-display-hidden');
@@ -463,6 +502,7 @@ function updateFeatureVisibility() {
     }
 
      // Skill Counter Visibility
+     // Show if the skill tree threshold is met *or* if the user has skill points
      const shouldShowSkillCounter = clickCount >= SKILL_TREE_UNLOCK_THRESHOLD || skillPoints > 0;
      if (shouldShowSkillCounter) {
          skillCounterElement.classList.remove('skill-counter-hidden');
@@ -524,6 +564,12 @@ function updatePhysicsBarDisplay() {
 
 // Function to handle earning skill points
 function checkEarnSkillPoint() {
+    // Only earn skill points if the skill tree is unlocked (clickCount >= SKILL_TREE_UNLOCK_THRESHOLD)
+    if (clickCount < SKILL_TREE_UNLOCK_THRESHOLD) {
+        lastSkillThreshold = 0; // Ensure threshold tracker is reset if below unlock threshold
+        return;
+    }
+
     const currentThreshold = Math.floor(clickCount / SKILL_POINT_EARN_THRESHOLD) * SKILL_POINT_EARN_THRESHOLD;
     if (currentThreshold > lastSkillThreshold) {
         const pointsEarned = (currentThreshold - lastSkillThreshold) / SKILL_POINT_EARN_THRESHOLD;
@@ -576,6 +622,7 @@ function getActiveBuffs() {
 
 
         // Math Buffs (Multiplier Bonus)
+        // Math buff is cumulative from all unlocked Math nodes (including base)
         if (baseClass === 'Math') {
              if (level === 1) { buffs.mathMultiplierBonus += 1; } // Base Math +1x (additive to base 1)
              else if (level === 2) { buffs.mathMultiplierBonus += 1.5; } // Math branches +1.5x (additive)
@@ -587,18 +634,21 @@ function getActiveBuffs() {
         // Chem Branch (L2) sets threshold to 3 if selected. Handled in click logic.
 
         // Alchemy Critical Value Bonus: Pre Calc (Level 3 Math) & Chem branch/sub-branches (Level 2/3 Science).
+        // This bonus is cumulative from *any* unlocked node providing it.
         if (baseClass === 'Science' && (nodeName === 'Chem' || parentBranch === 'Chem')) { buffs.alchemyCriticalValueBonus += 16; } // Chem Branch (L2) and its Sub-branches (L3) add +16 crit value each
          // Also include Pre Calc (L3 Math) for critical value bonus
          if (baseClass === 'Math' && parentBranch === 'Pre Calc' && level === 3) { buffs.alchemyCriticalValueBonus += 16; }
 
 
         // Biology Particle Value Bonus: Biology sub-branches (L3)
+        // This bonus is cumulative from *any* unlocked L3 Biology node.
         if (baseClass === 'Science' && parentBranch === 'Biology' && level === 3) { buffs.biologyParticleValueBonus += 8; } // Biology Sub-branches (L3) add +8 particle value
 
         // Physics Boost: Always active if Physics path selected. No specific numerical buff needed here for duration.
 
 
         // ELA Buffs (Trigger Chance, Bonus Letters/Value)
+        // Trigger chance and letter count are cumulative from relevant unlocked ELA nodes.
         if (baseClass === 'ELA') {
             // Base ELA adds 20% chance (handled in click logic if path selected) and 1 letter (handled in click logic if path selected)
              if (parentBranch === 'Writing' && level === 3) { buffs.elaTriggerChanceBonus += 0.05; } // Writing Sub-branches +5% chance (additive)
@@ -606,17 +656,10 @@ function getActiveBuffs() {
         }
 
         // Social Studies Buffs (Shake Bonus, Shake Duration Reduction)
+        // Shake bonus and duration reduction are cumulative from relevant unlocked SS nodes.
         if (baseClass === 'Social Studies') {
              if (level === 1) { buffs.socialStudiesShakeBonus += 72; } // Base SS +72 shake bonus (additive)
-             // Reinterpreting SS branches bonus: Let's have L2 branches add a smaller amount than L1.
-             // The original prompt said "Social Study branches give a higher cap of 128 per each click when spamming".
-             // This sounds like it *sets* the cap higher, not adds to the bonus itself.
-             // The last prompt said "Social Studies branches branches now have a cap of 512".
-             // This implies 512 is the cap if any SS branch (L2 or L3) is unlocked and SS path is selected.
-             // Let's adjust the logic: Shake bonus is *capped* based on unlocked SS nodes, rather than added up.
-             // Alternatively, let's stick to the additive model for now but apply the cap.
-             // Using additive model:
-             if (level === 2 && (nodeName === 'History' || nodeName === 'Economics' || nodeName === 'Geography')) { buffs.socialStudiesShakeBonus += 128; } // SS Branches +128 shake bonus (additive, from original interpretation)
+             if (level === 2 && (nodeName === 'History' || nodeName === 'Economics' || nodeName === 'Geography')) { buffs.socialStudiesShakeBonus += 128; } // SS Branches +128 shake bonus (additive)
              if (parentBranch === 'Geography' && level === 3) { buffs.socialStudiesShakeBonus += 36; } // Geography Sub-branches +36 shake bonus (additive)
 
              if (parentBranch === 'History' && level === 3) { buffs.socialStudiesShakeDurationReduction += 100; } // History Sub-branches -100ms duration needed (additive reduction)
@@ -626,10 +669,12 @@ function getActiveBuffs() {
     // --- Apply buffs conditionally based on the currently selected class path ---
     const selectedBaseClass = getBaseClass(selectedClass);
 
-    // Math multiplier bonus is always active if any Math node contributing to the bonus is unlocked
+    // Math multiplier bonus is only applied if a Math path is selected.
     // The total Math multiplier is 1 (base) + cumulative bonuses from unlocked Math nodes.
-    // activeBuffs.mathMultiplierBonus already holds this cumulative bonus. Add the base 1.
-    const totalMathMultiplier = 1 + buffs.mathMultiplierBonus;
+    // activeBuffs.mathMultiplierBonus already holds this cumulative bonus.
+     const totalMathMultiplier = (isBaseClass(selectedClass) && selectedClass === 'Math') || selectedBaseClass === 'Math'
+                                 ? 1 + buffs.mathMultiplierBonus // If base Math or any Math branch/sub-branch is selected
+                                 : 1; // Default 1x if not Math path
     buffs.mathMultiplierBonus = totalMathMultiplier; // Overwrite with the actual total multiplier
 
     // Science Alchemy threshold reduction is active IF Science path is selected (base or any branch/sub)
@@ -637,33 +682,34 @@ function getActiveBuffs() {
     // buffs.scienceAlchemyThresholdReduction is not needed here.
 
     // Alchemy Critical Value Bonus: Only active if Science path is selected *or* Pre Calc L3 (Math) is selected.
-    // It's cumulative from unlocked nodes.
+    // It's cumulative from unlocked nodes contributing to it.
      const preCalcCritBonus = unlockedClasses.filter(node => getBaseClass(node) === 'Math' && getParentBranch(node) === 'Pre Calc' && getLevel(node) === 3).length * 16;
      const scienceCritBonus = unlockedClasses.filter(node => getBaseClass(node) === 'Science' && (node === 'Chem' || getParentBranch(node) === 'Chem')).length * 16;
-     buffs.alchemyCriticalValueBonus = 0; // Reset from cumulative unlocked value
+     let totalCritBonus = 0;
      if (selectedBaseClass === 'Science') {
-          buffs.alchemyCriticalValueBonus += scienceCritBonus; // Add Science (Chem) bonus if Science path selected
+          totalCritBonus += scienceCritBonus; // Add Science (Chem) bonus if Science path selected
      }
      if (selectedBaseClass === 'Math') {
-          buffs.alchemyCriticalValueBonus += preCalcCritBonus; // Add Math (PreCalc) bonus if Math path selected
+          totalCritBonus += preCalcCritBonus; // Add Math (PreCalc) bonus if Math path selected
      }
-     // Note: If user switches between Science (Chem) and Math (PreCalc), only the relevant bonus is active.
+     buffs.alchemyCriticalValueBonus = totalCritBonus; // Set the combined active crit bonus
 
     // Biology Particle Value Bonus: Only active if Biology path is selected.
     // It's cumulative from unlocked L3 Biology nodes.
     const biologyCumulativeBonus = unlockedClasses.filter(node => getBaseClass(node) === 'Science' && getParentBranch(node) === 'Biology' && getLevel(node) === 3).length * 8;
-    buffs.biologyParticleValueBonus = isBiologyPathSelected(selectedClass) ? biologyCumulativeBonus : 0;
+    buffs.biologyParticleValueBonus = isBiologyPathSelected(selectedClass) ? BIOLOGY_PARTICLE_VALUE_BASE + biologyCumulativeBonus : BIOLOGY_PARTICLE_VALUE_BASE; // Apply bonus if path selected, otherwise just base value
 
 
     // ELA trigger chance and letters are only active IF ELA path is selected
     const elaCumulativeChanceBonus = unlockedClasses.filter(node => getBaseClass(node) === 'ELA' && getParentBranch(node) === 'Writing' && getLevel(node) === 3).length * 0.05;
     const elaCumulativeLetterBonus = unlockedClasses.filter(node => getBaseClass(node) === 'ELA' && getParentBranch(node) === 'Literature' && getLevel(node) === 3).length * 1;
 
-    buffs.elaTriggerChanceBonus = isELAPathSelected(selectedClass) ? ELA_BASE_TRIGGER_CHANCE + elaCumulativeChanceBonus : 0;
-    buffs.elaBonusLetterCount = isELAPathSelected(selectedClass) ? ELA_BASE_LETTER_COUNT + elaCumulativeLetterBonus : 0;
+    buffs.elaTriggerChanceBonus = isELAPathSelected(selectedClass) ? ELA_BASE_TRIGGER_CHANCE + elaCumulativeChanceBonus : 0; // Chance is 0 if ELA path not selected
+    buffs.elaBonusLetterCount = isELAPathSelected(selectedClass) ? ELA_BASE_LETTER_COUNT + elaCumulativeLetterBonus : 0; // Letter count is 0 if ELA path not selected
 
 
-    // Social Studies shake bonus and duration reduction are only active IF SS path is selected
+    // Social Studies Buffs (Shake Bonus, Shake Duration Reduction)
+    // Shake bonus and duration reduction are cumulative from relevant unlocked SS nodes.
     const ssCumulativeShakeBonus = unlockedClasses.filter(node => {
          const nodeInfo = getNodeInfo(node);
          const base = getBaseClass(node);
@@ -681,11 +727,11 @@ function getActiveBuffs() {
 
     const ssCumulativeDurationReduction = unlockedClasses.filter(node => getBaseClass(node) === 'Social Studies' && getParentBranch(node) === 'History' && getLevel(node) === 3).length * 100;
 
-    buffs.socialStudiesShakeBonus = isSocialStudiesPathSelected(selectedClass) ? ssCumulativeShakeBonus : 0;
-    buffs.socialStudiesShakeDurationReduction = isSocialStudiesPathSelected(selectedClass) ? ssCumulativeDurationReduction : 0;
+    buffs.socialStudiesShakeBonus = isSocialStudiesPathSelected(selectedClass) ? ssCumulativeShakeBonus : 0; // Bonus is 0 if SS path not selected
+    buffs.socialStudiesShakeDurationReduction = isSocialStudiesPathSelected(selectedClass) ? ssCumulativeDurationReduction : 0; // Reduction is 0 if SS path not selected
 
 
-    // Cap the Social Studies shake bonus if SS path is selected
+    // Cap the Social Studies shake bonus *after* calculating the cumulative bonus if SS path is selected
     if (isSocialStudiesPathSelected(selectedClass) && buffs.socialStudiesShakeBonus > SOCIAL_STUDIES_SHAKE_BONUS_CAP) {
          buffs.socialStudiesShakeBonus = SOCIAL_STUDIES_SHAKE_BONUS_CAP;
      } else if (!isSocialStudiesPathSelected(selectedClass)) {
@@ -714,15 +760,11 @@ clickButton.addEventListener('click', () => {
     const selectedParentBranch = getParentBranch(selectedClass);
 
 
-    // --- Check for Class Unlock (Random Assignment) ---
-    if (clickCount < CLASS_UNLOCK_THRESHOLD && (clickCount + 1) >= CLASS_UNLOCK_THRESHOLD && selectedClass === null) {
-        // Unlock class for the first time and assign a random one
-        const randomIndex = Math.floor(Math.random() * BASE_CLASSES.length);
-        selectedClass = BASE_CLASSES[randomIndex];
-        unlockedClasses.push(selectedClass); // Add the initial class to unlocked
-        console.log("Class Unlocked!", selectedClass); // Log for testing
-        // The display update happens below in updateFeatureVisibility
-    }
+    // --- Handle Class Unlock (Auto Unlock Base Classes at 1000) ---
+    // Removed the old random class assignment logic
+    // Now, check and unlock base classes when clickCount reaches SKILL_TREE_UNLOCK_THRESHOLD
+    // This check is done AFTER the clickCount is updated below.
+
 
     // --- Variables for Flying Number ---
     let flyingNumberTextParts = []; // Array to build the flying number text
@@ -741,30 +783,32 @@ clickButton.addEventListener('click', () => {
     let currentAlchemyThreshold = DEFAULT_ALCHEMY_THRESHOLD; // Start with default
 
     const isSciencePath = selectedBaseClass === 'Science';
-    const isChemBranch = selectedClass === 'Chem'; // L2 Chem
-    const isChemSubBranch = isChemistrySubBranchSelected(selectedClass); // Any L3 Chem
+    const isChemBranchSelected = selectedClass === 'Chem'; // L2 Chem
+    const isChemSubBranchSelectedNow = isChemistrySubBranchSelected(selectedClass); // Any L3 Chem
 
     if (clickCount >= ALCHEMY_COUNTER_UNLOCK_THRESHOLD) {
          if (isSciencePath) {
              currentAlchemyThreshold = SCIENCE_ALCHEMY_THRESHOLD_BASE; // Base Science reduces threshold
              // If Chem Branch (L2) is selected, override threshold to 3
-             if (isChemBranch) {
+             if (isChemBranchSelected) {
                   currentAlchemyThreshold = CHEM_BRANCH_ALCHEMY_THRESHOLD;
              }
-              // No threshold logic needed for L3 Chem, critical is always active (handled below)
+              // If L3 Chem is selected, critical is always true, threshold doesn't apply for triggering
          }
 
          // Check if the *next* click will cause a critical hit based on threshold,
-         // UNLESS an L3 Chem node is selected, in which case crit is always true.
-         if (isChemSubBranch) {
+         // UNLESS an L3 Chem node is selected, in which case crit is always true if Science path is selected.
+         if (isSciencePath && isChemSubBranchSelectedNow) { // Must be on Science path AND L3 Chem selected
              isCriticalHit = true; // Always critical if L3 Chem is selected
-         } else if (potentialAlchemyCount > currentAlchemyThreshold) {
+         } else if (potentialAlchemyCount > currentAlchemyThreshold) { // Otherwise, check threshold
               isCriticalHit = true; // Critical hit based on threshold
          }
 
         // If critical hit is triggered (either by threshold or L3 Chem selection)
         if (isCriticalHit) {
            // Critical hit adds bonus value equal to BASE ALCHEMY VALUE + cumulative Alchemy Critical Bonus buff
+           // activeBuffs.alchemyCriticalValueBonus is calculated based on UNLOCKED PreCalc/Chem nodes,
+           // and APPLIED if Math OR Science path is selected (handled within getActiveBuffs).
            bonusValue += ALCHEMY_CRITICAL_VALUE_BASE + activeBuffs.alchemyCriticalValueBonus;
            extraText += 'CRITICAL '; // Add critical text prefix
            flyingNumberColor = 'rgba(255, 215, 0, 1.0)'; // Gold for Critical
@@ -811,7 +855,7 @@ clickButton.addEventListener('click', () => {
     const currentCPS = calculateCPS(); // Calculate current CPS for multiplier
     const effect = getClickEffect(currentCPS); // Get multiplier based on CPS
 
-    // Calculate total multiplier: CPS Multiplier * Math Multiplier (activeBuffs.mathMultiplierBonus is already 1 + unlocked bonuses if Math path is selected)
+    // Calculate total multiplier: CPS Multiplier * Math Multiplier (activeBuffs.mathMultiplierBonus is already 1 + unlocked bonuses IF Math path is selected)
     const totalMultiplier = effect.multiplier * activeBuffs.mathMultiplierBonus;
 
 
@@ -820,15 +864,16 @@ clickButton.addEventListener('click', () => {
 
 
     // --- Handle ELA Bonus ---
-    // ELA trigger chance includes base chance + writing sub-branch bonus
-    // activeBuffs.elaTriggerChanceBonus is 0 unless ELA path is selected and Writing nodes unlocked.
+    // ELA bonus triggers based on chance if ELA path is selected.
+    // activeBuffs.elaTriggerChanceBonus is 0 unless ELA path is selected.
+    // activeBuffs.elaBonusLetterCount is 0 unless ELA path is selected.
      const elaTriggerChance = activeBuffs.elaTriggerChanceBonus;
-    // activeBuffs.elaBonusLetterCount includes Base ELA (1 if path selected) + Literature (up to 3 if path selected)
+    // elaLetterCount includes Base ELA (1 if path selected) + Literature (up to 3 if path selected)
      const elaLetterCount = activeBuffs.elaBonusLetterCount;
 
-     if (isELAPathSelected(selectedClass) && elaLetterCount > 0 && Math.random() < elaTriggerChance) {
+     if (elaLetterCount > 0 && Math.random() < elaTriggerChance) { // Check chance only if ELA path selected (elaLetterCount > 0 implies this)
          // ELA triggered!
-         // Each letter/bonus adds ELA_LETTER_VALUE. totalELABonusValue is now calculated from activeBuffs.elaBonusLetterCount.
+         // Each letter/bonus adds ELA_LETTER_VALUE.
          const totalELABonusValue = elaLetterCount * ELA_LETTER_VALUE;
          bonusValue += totalELABonusValue; // Add ELA bonus value to the total bonus
 
@@ -846,10 +891,9 @@ clickButton.addEventListener('click', () => {
 
     // --- Handle Social Studies Bonus ---
     // Social Studies adds a bonus if the button is shaking (high speed) and SS path is active
-    // activeBuffs.socialStudiesShakeBonus is 0 unless SS path selected and relevant nodes unlocked.
-    // It's also capped in getActiveBuffs.
+    // activeBuffs.socialStudiesShakeBonus is 0 unless SS path selected.
     if (isButtonShaking && isSocialStudiesPathSelected(selectedClass) && activeBuffs.socialStudiesShakeBonus > 0) {
-        const ssBonus = activeBuffs.socialStudiesShakeBonus;
+        const ssBonus = activeBuffs.socialStudiesShakeBonus; // This bonus is already capped in getActiveBuffs
         bonusValue += ssBonus; // Add SS bonus
         // Don't override color if ELA or Critical also triggered this click
         if (!flyingNumberColor && !extraText.includes('CRITICAL')) { // Check if Critical didn't already set color
@@ -876,7 +920,7 @@ clickButton.addEventListener('click', () => {
     flyingNumberText = (extraText ? extraText : '') + flyingNumberTextParts.join(' '); // Join parts with space
 
 
-    // Apply CPS color if no special class color was set by Critical or ELA
+    // Apply CPS color if no special class color was set by Critical, ELA, or SS
     if (!flyingNumberColor) {
          flyingNumberColor = effect.color;
     }
@@ -906,6 +950,9 @@ clickButton.addEventListener('click', () => {
 
     // --- Update Displays and Feature Visibility ---
     mainCounterElement.textContent = `Counter: ${Math.round(clickCount)}`; // Update main counter display (round for display)
+
+    // Check and unlock base classes if threshold reached
+    checkUnlockBaseClasses();
 
     // Check and earn skill points based on the new clickCount
     checkEarnSkillPoint();
@@ -967,8 +1014,9 @@ setInterval(() => {
 
 
     // Check and trigger Chemistry Haste (Level 3 Chem nodes)
-     const isChemSubBranchSelected = isChemistrySubBranchSelected(selectedClass);
-     if (isChemSubBranchSelected) {
+     const isChemSubBranchSelectedNow = isChemistrySubBranchSelected(selectedClass); // Check if L3 Chem is *currently selected*
+     // Chem Haste only triggers IF a L3 Chem node is *selected*.
+     if (isChemSubBranchSelectedNow) {
          // Check if enough time has passed since the last trigger *and* Haste is not already active
           if (currentTime - lastChemHasteTriggerTime >= CHEM_HASTE_INTERVAL_MS && chemHasteActiveEndTime <= currentTime) {
               chemHasteActiveEndTime = currentTime + CHEM_HASTE_DURATION_MS; // Activate Haste
@@ -1010,12 +1058,14 @@ setInterval(() => {
     const passiveIncomeFromVocab = unlockedClasses.filter(node => {
          const nodeInfo = getNodeInfo(node);
          // Check if it's a Level 3 Vocab node AND its base class (ELA) is also unlocked
+         // Passive income requires the base class AND the specific L3 node to be unlocked.
          return nodeInfo && nodeInfo.level === 3 && nodeInfo.parent === 'Vocab' && isClassUnlocked('ELA');
     }).length * PASSIVE_INCOME_PER_NODE;
 
     const passiveIncomeFromEconomics = unlockedClasses.filter(node => {
          const nodeInfo = getNodeInfo(node);
           // Check if it's a Level 3 Economics node AND its base class (Social Studies) is also unlocked
+          // Passive income requires the base class AND the specific L3 node to be unlocked.
          return nodeInfo && nodeInfo.level === 3 && nodeInfo.parent === 'Economics' && isClassUnlocked('Social Studies');
     }).length * PASSIVE_INCOME_PER_NODE;
 
@@ -1027,7 +1077,7 @@ setInterval(() => {
         // Calculate income earned since last check based on elapsed time
         const incomeThisTick = totalPassiveIncomePerSecond * (elapsed / 1000); // Income per tick based on time
 
-        if (incomeThisTick > 0.01) { // Only add if meaningful amount
+        if (incomeThisTick >= 1) { // Only add if at least 1 point earned
              clickCount += incomeThisTick; // Add passive income to total count
              mainCounterElement.textContent = `Counter: ${Math.round(clickCount)}`; // Update main counter display (round for display)
 
@@ -1049,41 +1099,37 @@ setInterval(() => {
 
 
     // --- Biology Particles ---
-    // Biology particles are active if Biology path is selected.
-    // Value is based on Base + unlocked L3 Biology nodes (handled by getActiveBuffs).
+    // Biology particles are active if Biology path is *selected*.
+    // Value is based on Base + unlocked L3 Biology nodes (activeBuffs.biologyParticleValueBonus).
     const isBiologyPath = isBiologyPathSelected(selectedClass);
-    const activeBuffs = getActiveBuffs(); // Need buffs for biology particle value
+    // Need buffs for biology particle value - getActiveBuffs already calculates the *potential* bonus
+    // if any L3 Biology nodes are unlocked.
+    const activeBuffs = getActiveBuffs(); // Recalculate buffs as values can change over time
+
+    // activeBuffs.biologyParticleValueBonus already includes the base + unlocked bonus if Biology path selected.
+    // If Biology path is NOT selected, activeBuffs.biologyParticleValueBonus is just BIOLOGY_PARTICLE_VALUE_BASE.
+    // But particles should only SPAWN if the path is selected.
+     const biologyParticleValue = activeBuffs.biologyParticleValueBonus;
+
 
     if (isBiologyPath && (currentTime - biologyLastParticleTime >= BIOLOGY_PARTICLE_INTERVAL_MS)) {
         biologyLastParticleTime = currentTime; // Update last particle time
 
-        // Calculate Biology particle value based on new base + sub-branch bonus
-        // activeBuffs.biologyParticleValueBonus is 0 unless Biology path is selected and L3 Biology nodes unlocked.
-        // This seems slightly contradictory. Let's refine the logic:
-        // Biology particle value is BASE + SUM of unlocked L3 Bio nodes * 8. This happens REGARDLESS of selected class.
-        // The particles SPAWN only if Biology path is selected.
-        // Let's calculate the potential bonus value based on UNLOCKED nodes here:
-         const biologyCumulativeBonus = unlockedClasses.filter(node => getBaseClass(node) === 'Science' && getParentBranch(node) === 'Biology' && getLevel(node) === 3).length * 8;
-         const biologyParticleValue = BIOLOGY_PARTICLE_VALUE_BASE + biologyCumulativeBonus;
+        clickCount += biologyParticleValue; // Add value to total count
+        mainCounterElement.textContent = `Counter: ${Math.round(clickCount)}`; // Update main counter display (round for display)
+
+         // Create and animate the Biology particle flying number
+         // Particles don't originate from the button, they appear randomly near the center.
+         const centerX = window.innerWidth / 2;
+         const centerY = window.innerHeight / 2;
+         // Position the particle slightly off center
+         createFlyingNumber(`+${biologyParticleValue} (DNA)`, centerX + Math.random() * 100 - 50, centerY + Math.random() * 100 - 50, null, true, counterContainer, activeCounters); // Use rainbow color, slightly random position
 
 
-        if (isBiologyPath) { // Only spawn particles if Biology path is selected
-            clickCount += biologyParticleValue; // Add value to total count
-            mainCounterElement.textContent = `Counter: ${Math.round(clickCount)}`; // Update main counter display (round for display)
+        checkEarnSkillPoint(); // Check for skill points after adding Biology value
+        // No need to updateFeatureVisibility here
 
-             // Create and animate the Biology particle flying number
-             // Particles don't originate from the button, they appear randomly near the center.
-             const centerX = window.innerWidth / 2;
-             const centerY = window.innerHeight / 2;
-             // Position the particle slightly off center
-             createFlyingNumber(`+${biologyParticleValue} (DNA)`, centerX + Math.random() * 100 - 50, centerY + Math.random() * 100 - 50, null, true, counterContainer, activeCounters); // Use rainbow color, slightly random position
-
-
-            checkEarnSkillPoint(); // Check for skill points after adding Biology value
-            // No need to updateFeatureVisibility here
-
-            saveState(); // Save state after Biology particle
-        }
+        saveState(); // Save state after Biology particle
     }
 
 }, 1000); // Check every 1 second for passive income and Biology particles
