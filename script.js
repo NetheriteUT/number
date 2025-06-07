@@ -273,23 +273,25 @@ function loadState() {
          lastChemHasteTriggerTime = parseInt(localStorage.getItem('lastChemHasteTriggerTime') || '0', 10); // Load chem haste trigger time
         lastPassiveIncomeTime = parseInt(localStorage.getItem('lastPassiveIncomeTime') || '0', 10); // Load passive income timer
 
-        // Check if the SKILL_TREE_UNLOCK_THRESHOLD has been met or exceeded on load
-        // If so, ensure all base classes are in the unlockedClasses array
-        if (clickCount >= SKILL_TREE_UNLOCK_THRESHOLD) {
-            checkUnlockBaseClasses(); // Ensure base classes are unlocked if threshold is met
-        } else {
-             // If threshold not met, ensure unlockedClasses only contains a base class IF it was previously selected
-             // This handles old saves where a random class was assigned below 1000
-             const selectedNodeInfo = getNodeInfo(selectedClass);
-             if (selectedNodeInfo && selectedNodeInfo.level === 1 && unlockedClasses.includes(selectedClass)) {
-                  // Keep only the selected base class if below threshold
-                  unlockedClasses = [selectedClass];
-             } else {
-                  // Otherwise, clear unlocked classes if below threshold and no base class was selected/unlocked
-                  unlockedClasses = [];
-                  selectedClass = null; // Ensure selectedClass is null if no base class is unlocked below 1000
-             }
+        // --- Ensure Base Classes Are Always Unlocked ---
+        // Add any base class that is NOT already in unlockedClasses.
+        BASE_CLASSES.forEach(baseClass => {
+            if (!unlockedClasses.includes(baseClass)) {
+                unlockedClasses.push(baseClass);
+            }
+        });
+        // If no class is selected and base classes are now unlocked, default to selecting the first one or keep null
+        if (selectedClass === null && unlockedClasses.length > 0) {
+             // Option: Automatically select the first base class
+             // selectedClass = BASE_CLASSES[0]; // Or keep null, letting the user select
+
+             // Keep selectedClass as null if nothing was previously selected, user must choose
         }
+         // If a class was previously selected but is no longer in unlocked (shouldn't happen with base classes always unlocked now), reset selection
+         if (selectedClass !== null && !unlockedClasses.includes(selectedClass)) {
+              selectedClass = null;
+         }
+        // --- End Ensure Base Classes Always Unlocked ---
 
 
         // Ensure timers are valid if they were in the past
@@ -308,6 +310,11 @@ function loadState() {
             lastPassiveIncomeTime = currentTime;
         }
 
+        // Reset lastSkillThreshold if clickCount is below the unlock threshold
+        if (clickCount < SKILL_TREE_UNLOCK_THRESHOLD) {
+             lastSkillThreshold = 0;
+        }
+
 
     } catch (e) {
         console.error("Error loading from localStorage:", e);
@@ -316,8 +323,14 @@ function loadState() {
         alchemyCount = 0;
         selectedClass = null;
         unlockedClasses = [];
+         // Ensure base classes are unlocked even after a load error
+         BASE_CLASSES.forEach(baseClass => {
+             if (!unlockedClasses.includes(baseClass)) {
+                 unlockedClasses.push(baseClass);
+             }
+         });
         skillPoints = 0;
-        lastSkillThreshold = 0;
+        lastSkillThreshold = 0; // Reset threshold tracker below unlock threshold
         physicsCount = 0; // Keep physicsCount, reset value
         // physicsActiveEndTime = 0; // DEPRECATED
         biologyLastParticleTime = Date.now();
@@ -462,6 +475,8 @@ function randomLetter() {
 }
 
 // Function to unlock base classes (Math, Science, ELA, Social Studies)
+// This function is no longer needed as base classes are always unlocked on load.
+/*
 function checkUnlockBaseClasses() {
      // Check if the unlock threshold is met
      if (clickCount >= SKILL_TREE_UNLOCK_THRESHOLD) {
@@ -479,7 +494,7 @@ function checkUnlockBaseClasses() {
          }
      }
 }
-
+*/
 
 // Function to update the visibility state of alchemy counter, class display text, skill counter, and physics bar
 function updateFeatureVisibility() {
@@ -502,7 +517,7 @@ function updateFeatureVisibility() {
     }
 
      // Skill Counter Visibility
-     // Show if the skill tree threshold is met *or* if the user has skill points
+     // Show if the skill tree threshold is met *or* if the user has skill points (this logic is correct)
      const shouldShowSkillCounter = clickCount >= SKILL_TREE_UNLOCK_THRESHOLD || skillPoints > 0;
      if (shouldShowSkillCounter) {
          skillCounterElement.classList.remove('skill-counter-hidden');
@@ -530,6 +545,8 @@ function updateFeatureVisibility() {
 
 
     // Skill Tree Button Visibility
+    // This should appear when the skill tree is conceptually unlocked, which is at SKILL_TREE_UNLOCK_THRESHOLD
+    // Even though base classes are unlocked from the start, the tree button should only appear when the user is ready for it.
     if (clickCount >= SKILL_TREE_UNLOCK_THRESHOLD) {
         skillTreeButton.classList.remove('skill-tree-hidden');
     } else {
@@ -564,17 +581,20 @@ function updatePhysicsBarDisplay() {
 
 // Function to handle earning skill points
 function checkEarnSkillPoint() {
-    // Only earn skill points if the skill tree is unlocked (clickCount >= SKILL_TREE_UNLOCK_THRESHOLD)
+    // Only earn skill points if the skill tree unlock threshold is met or exceeded
     if (clickCount < SKILL_TREE_UNLOCK_THRESHOLD) {
-        lastSkillThreshold = 0; // Ensure threshold tracker is reset if below unlock threshold
-        return;
+        // If below the threshold, ensure lastSkillThreshold is reset to 0
+        // This ensures that when the threshold IS met, the calculation (1000 - 0) / 100 correctly gives 10 points.
+        lastSkillThreshold = 0;
+        return; // Do not earn points yet
     }
 
+    // If above or at the threshold, calculate earned points based on full 100-click increments crossed
     const currentThreshold = Math.floor(clickCount / SKILL_POINT_EARN_THRESHOLD) * SKILL_POINT_EARN_THRESHOLD;
     if (currentThreshold > lastSkillThreshold) {
         const pointsEarned = (currentThreshold - lastSkillThreshold) / SKILL_POINT_EARN_THRESHOLD;
         skillPoints += pointsEarned;
-        lastSkillThreshold = currentThreshold;
+        lastSkillThreshold = currentThreshold; // Update the last threshold crossed
         updateSkillCounterDisplay();
         console.log(`Earned ${pointsEarned} Skill Point(s)! Total: ${skillPoints}`); // Log for testing
         saveState(); // Save immediately after earning points
@@ -762,8 +782,8 @@ clickButton.addEventListener('click', () => {
 
     // --- Handle Class Unlock (Auto Unlock Base Classes at 1000) ---
     // Removed the old random class assignment logic
-    // Now, check and unlock base classes when clickCount reaches SKILL_TREE_UNLOCK_THRESHOLD
-    // This check is done AFTER the clickCount is updated below.
+    // Base classes are now unlocked on page load always.
+    // The skill tree button appears at SKILL_TREE_UNLOCK_THRESHOLD.
 
 
     // --- Variables for Flying Number ---
@@ -952,7 +972,7 @@ clickButton.addEventListener('click', () => {
     mainCounterElement.textContent = `Counter: ${Math.round(clickCount)}`; // Update main counter display (round for display)
 
     // Check and unlock base classes if threshold reached
-    checkUnlockBaseClasses();
+    // Removed checkUnlockBaseClasses() as base classes are always unlocked on load now.
 
     // Check and earn skill points based on the new clickCount
     checkEarnSkillPoint();
